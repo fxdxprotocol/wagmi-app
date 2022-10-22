@@ -1,8 +1,73 @@
 import Head from 'next/head'
 import Image from 'next/image'
 import styles from '../styles/Home.module.css'
+import { useAccount, useConnect, useDisconnect, useEnsName, useNetwork, useSwitchNetwork} from 'wagmi'
+import { InjectedConnector } from 'wagmi/connectors/injected'
+import { WalletConnectConnector } from 'wagmi/connectors/walletConnect'
+import { MetaMaskConnector } from 'wagmi/connectors/metaMask'
+import {
+  WagmiConfig,
+  createClient,
+  configureChains,
+  chain as tChain,
+  defaultChains,
+} from 'wagmi'
+import { publicProvider } from 'wagmi/providers/public'
+const bscChain = {
+  id: 56,
+  name: 'Smart Chain',
+  network: 'Smart Chain',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Binace Smart Chain',
+    symbol: 'BNB',
+  },
+  rpcUrls: {
+    default: 'https://bsc-dataseed.binance.org/',
+  },
+  blockExplorers: {
+    default: { name: 'BSCScan', url: 'https://bscscan.com' },
+  },
+  testnet: false,
+}
 
 export default function Home() {
+  const { address, isConnected } = useAccount()
+  const { data: ensName } = useEnsName({ address })
+  const { chain } = useNetwork()
+  const { chains, error, isLoading, pendingChainId, switchNetwork } =
+    useSwitchNetwork()
+
+  const { connect } = useConnect({
+    connector: new MetaMaskConnector({
+      chains: [tChain.mainnet, bscChain],
+      options: {
+        shimDisconnect: true,
+        UNSTABLE_shimOnConnectSelectAccount: true,
+      },
+    }),
+    // new WalletConnectConnector({
+    //   chains,
+    //   options: {
+    //     qrcode: true
+    //   }
+    // }),
+  })
+  const { disconnect } = useDisconnect({
+    connector: new MetaMaskConnector({
+      chains: [tChain.mainnet, tChain.optimism],
+      options: {
+        shimDisconnect: true,
+        UNSTABLE_shimOnConnectSelectAccount: true,
+      },
+    }) 
+    // new WalletConnectConnector({
+    //   chains,
+    //   options: {
+    //     qrcode: true
+    //   }
+    // }),
+  })
   return (
     <div className={styles.container}>
       <Head>
@@ -20,7 +85,24 @@ export default function Home() {
           Get started by editing{' '}
           <code className={styles.code}>pages/index.js</code>
         </p>
-
+        <div className={styles.grid}>
+          {isConnected && <div>Connected to {ensName ?? address }</div>}
+          <button onClick={() => connect()}>Connect Wallet</button>
+          <button onClick={() => disconnect()}>Disconnect</button>
+        </div>
+        <>
+          {chain && <div>Connected to {chain.name}</div>}
+          {chains.map((x) => (
+            <button
+              disabled={!switchNetwork || x.id === chain?.id}
+              key={x.id}
+              onClick={() => switchNetwork?.(x.id)}
+            >
+              {x.name}
+              {isLoading && pendingChainId === x.id && ' (switching)'}
+            </button>
+          ))}
+        </>
         <div className={styles.grid}>
           <a href="https://nextjs.org/docs" className={styles.card}>
             <h2>Documentation &rarr;</h2>
